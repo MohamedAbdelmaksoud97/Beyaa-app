@@ -7,32 +7,44 @@ const purchaseSchema = new mongoose.Schema(
       ref: "Store",
       required: true,
     },
+    products: [
+      {
+        productId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        name: {
+          type: String,
+          required: true,
+          trim: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1,
+          min: 1,
+        },
+        size: String, // optional variant
+        unitPrice: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
 
-    productId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Product",
-      required: true,
-    },
-
-    productNameSnapshot: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-
-    size: String, // optional variant (e.g., “A3”, “XL”)
+        totalPrice: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+      },
+    ],
 
     isPOD: {
       type: Boolean,
       default: false,
     },
-    podImage: String, // URL if POD
+    podImage: String,
 
     customerName: {
       type: String,
@@ -48,12 +60,8 @@ const purchaseSchema = new mongoose.Schema(
       required: true,
     },
 
-    unitPrice: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    totalPrice: {
+    // 👇 replace root unitPrice/totalPrice with grandTotal
+    grandTotal: {
       type: Number,
       required: true,
       min: 0,

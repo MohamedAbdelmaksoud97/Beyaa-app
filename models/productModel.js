@@ -36,6 +36,17 @@ const productSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    availableSize: {
+      type: [String],
+      enum: ["XS", "S", "M", "L", "XL", "XXL"],
+      default: [],
+    },
+
+    // colors can stay open-ended
+    color: {
+      type: String,
+      default: "",
+    },
 
     images: {
       type: [String], // e.g. ["prod-<id>-169...-1.jpeg", "prod-...-2.jpeg"]

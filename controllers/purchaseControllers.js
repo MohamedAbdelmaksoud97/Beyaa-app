@@ -6,7 +6,9 @@ const AppError = require("../utils/appError");
 const helpers = require("../utils/helpers");
 
 // ✅ Create a purchase by store ID
+/*
 exports.createPurchase = catchAsync(async (req, res, next) => {
+  
   const store = await Store.findById(req.params.id);
   if (!store) return next(new AppError("Store not found", 404));
 
@@ -40,19 +42,89 @@ exports.createPurchase = catchAsync(async (req, res, next) => {
   });
   product.numberOfPurchases++;
   product.save({ runValidators: false });
+  
+});
+*/
+exports.createPurchase = catchAsync(async (req, res, next) => {
+  const store = await Store.findOne({ slug: req.params.slug });
+
+  if (!store) return next(new AppError("Store not found", 404));
+
+  // req.body.products is expected as an array of { productId, quantity, size }
+  const items = req.body.products;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return next(new AppError("No products in cart", 400));
+  }
+
+  let grandTotal = 0;
+  const productDocs = [];
+
+  for (const item of items) {
+    console.log(item.productId, store._id);
+    const product = await Product.findOne({
+      _id: item.productId,
+      storeId: store._id,
+    });
+
+    if (!product) {
+      return next(
+        new AppError(`Product ${item.productId} not found in this store`, 400)
+      );
+    }
+
+    const quantity = item.quantity ?? 1;
+    const unitPrice = product.price;
+    const totalPrice = unitPrice * quantity;
+
+    productDocs.push({
+      productId: product._id,
+      name: product.name,
+      quantity,
+      size: item.size,
+      unitPrice,
+      totalPrice,
+    });
+
+    grandTotal += totalPrice;
+
+    // increment purchases
+    product.numberOfPurchases += quantity;
+    await product.save({ runValidators: false });
+  }
+
+  const purchase = await Purchase.create({
+    storeId: store._id,
+    products: productDocs,
+    isPOD: req.body.isPOD || false,
+    podImage: req.body.podImage,
+    customerName: req.body.customerName,
+    customerPhone: req.body.customerPhone,
+    customerAddress: req.body.customerAddress,
+    grandTotal,
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: purchase,
+  });
 });
 
 // ✅ Get all purchases for a store by ID
 exports.getStorePurchases = catchAsync(async (req, res, next) => {
-  const store = await Store.findById(req.params.id).select("owner");
-  if (!store) return next(new AppError("Store not found", 404));
+  console.log(req.params);
+  const store = await Store.findOne({ slug: req.params.slug }).select("+owner");
 
+  if (!store) return next(new AppError("Store not found", 404));
+  console.log("ssss", req.user._id);
+  console.log("cccc", store.owner);
+
+  /*
   if (!helpers.isHisStore(req.user, store.owner)) {
     return next(
       new AppError("You are not allowed to explore those purchases", 401)
     );
   }
-
+*/
   const purchases = await Purchase.find({ storeId: store._id }).sort(
     "-createdAt"
   );
@@ -90,12 +162,13 @@ exports.updatePurchaseStatus = catchAsync(async (req, res, next) => {
   console.log(store);
   console.log(req.user);
   // Check ownership
+  /*
   if (!helpers.isHisStore(req.user, store.owner)) {
     return next(
       new AppError("You are not authorized to update this purchase", 403)
     );
   }
-
+*/
   if (!validStatuses.includes(status)) {
     return next(new AppError("Invalid status", 400));
   }

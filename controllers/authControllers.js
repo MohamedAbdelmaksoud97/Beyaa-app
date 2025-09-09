@@ -6,6 +6,7 @@ const userModel = require("../models/userModel");
 const { promisify } = require("util");
 const crypto = require("crypto");
 const sendEmail = require("../utils/email");
+const Store = require("../models/storeModel");
 ///////helpers///////////////////
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -13,24 +14,34 @@ const signToken = (id) => {
   });
 };
 
-const createSendToken = (user, statusCode, res) => {
+const createSendToken = async (user, statusCode, res) => {
+  // near the top
+  const isProd = process.env.NODE_ENV === "production";
+
   const token = signToken(user._id);
   //send token in cookie
+  //send storeslug with data
+  const store = await Store.findOne({ owner: user._id });
+  //console.log("ssss", slug.slug);
+  const slug = store?.slug;
+  console.log(slug);
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
     httpOnly: true,
+    secure: isProd,
   };
 
   res.cookie("jwt", token, cookieOptions);
   //remove password from response
   user.password = undefined;
+
   //send the response including jwt for mobile apps
   res.status(statusCode).json({
     status: "success",
     token,
-    data: { user },
+    data: { user, slug },
   });
 };
 /////////////////////////////////
@@ -62,13 +73,14 @@ exports.signUp = catchAsync(async (req, res, next) => {
     });
 
     // Option A: Don’t log them in until verified
+    /*
     res.status(201).json({
       status: "success",
       message: "User created. Verification email sent.",
-    });
+    });*/
 
     // Option B : Log them in but limit features until verified.
-    // createSendToken(newUser, 201, res);
+    createSendToken(newUser, 201, res);
   } catch (err) {
     // Roll back if email sending fails
     newUser.emailVerificationToken = undefined;
@@ -121,6 +133,8 @@ exports.logIn = catchAsync(async (req, res, next) => {
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect email or password", 401));
   }
+
+  /*
   if (!user.emailVerified) {
     return next(
       new AppError(
@@ -129,12 +143,13 @@ exports.logIn = catchAsync(async (req, res, next) => {
       )
     );
   }
-
+*/
   // 4️⃣ Send token to client
   createSendToken(user, 200, res);
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
+  console.log(req.body);
   //extract token from request headers or cookie
   let token;
   if (

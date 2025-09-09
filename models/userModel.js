@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: true,
+    unique: true,
   },
   password: {
     type: String,
@@ -62,6 +63,8 @@ userSchema.pre("save", async function (next) {
   this.passwordConfirm = undefined;
   next();
 });
+
+// Make it explicit too (helps in migrations)
 
 userSchema.methods.correctPassword = async function (
   candidatePassword,
