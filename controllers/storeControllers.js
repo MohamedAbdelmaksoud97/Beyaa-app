@@ -7,19 +7,32 @@ const helpers = require("../utils/helpers");
 // @route   POST /stores/createStore
 // @access  Public (can be protected later)
 exports.createStore = catchAsync(async (req, res, next) => {
-  const { name, storeInformation, logo, brandColor } = req.body;
+  console.log("Creating store with data:", req.body);
+
+  const {
+    name,
+    storeInformation,
+    whatSell,
+    logo,
+    heroImage,
+    heading,
+    subHeading,
+  } = req.body;
   const owner = req.user._id;
-  const doesHaveAStore = await Store.findOne({ owner: owner });
-  if (doesHaveAStore)
-    return next(new AppError("you already have a store", 401));
+  const existingStore = await Store.findOne({ owner });
+  if (existingStore) {
+    return next(new AppError("You already have a store", 400));
+  }
+
   const newStore = await Store.create({
     name,
     storeInformation,
     owner,
-    userInterface: {
-      logo: logo || "",
-      brandColor: brandColor || "#000000",
-    },
+    heroImage,
+    whatSell,
+    heading,
+    subHeading,
+    logo: logo || "",
   });
 
   const storeData = newStore.toObject();
@@ -57,34 +70,64 @@ exports.getStoreBySlug = catchAsync(async (req, res, next) => {
     data: store,
   });
 });
+exports.getStoreOfOwner = catchAsync(async (req, res, next) => {
+  const store = await Store.findOne({ owner: req.user._id });
+  console.log(req.user._id);
+  console.log(store);
+
+  if (!store) return next(new AppError("Store not found", 404));
+
+  res.status(200).json({
+    status: "success",
+    data: store,
+  });
+});
 
 // @desc    Update a store by ID
 // @route   PATCH /stores/:id
 // @access  Private (owner/admin)
 exports.updateStore = catchAsync(async (req, res, next) => {
-  const updatedStore = await Store.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  }).select("owner");
+  // 1) Load doc first
+  console.log(req.body);
+  const store = await Store.findById(req.params.id).select("+owner");
+  console.log("sssss", store);
+  if (!store) return next(new AppError("Store not found", 404));
 
-  if (!updatedStore) return next(new AppError("Store not found", 404));
+  // 2) Authorize BEFORE changing anything
 
-  if (!helpers.isHisStore(req.user, updatedStore.owner)) {
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
     return next(
       new AppError("You do not have permission to update this store", 403)
     );
   }
 
-  // 3️⃣ Apply changes manually then save to avoid second query
-  Object.assign(updatedStore, req.body);
-  await updatedStore.save();
-  const storeData = updatedStore.toObject();
-  delete storeData.owner;
+  // 3) Whitelist allowed fields (avoid updating protected fields like `owner`)
+  const allowedKeys = [
+    "name",
+    "storeInformation",
+    "whatSell",
+    "logo",
+    "brandColor",
+    "heading",
+    "subHeading",
+    "heroImage", // ✅ include heroImage
+  ];
 
-  res.status(200).json({
-    status: "success",
-    data: storeData,
-  });
+  // 4) Apply once and save (validators run on save)
+  const allowed = {};
+  for (const k of allowedKeys) {
+    const v = req.body[k];
+    // accept only defined AND non-empty-string values
+    if (v !== undefined && v !== "") allowed[k] = v;
+  }
+
+  // 4) Apply once and save (validators run on save)
+  Object.assign(store, allowed);
+  await store.save();
+
+  const data = store.toObject();
+  delete data.owner;
+  res.status(200).json({ status: "success", data });
 });
 
 // @desc    Delete a store by ID

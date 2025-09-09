@@ -14,7 +14,11 @@ const storeSchema = new mongoose.Schema(
     storeInformation: {
       type: String,
       trim: true,
-      required: [true, "store details are required"],
+    },
+    whatSell: {
+      type: String,
+
+      //required: [true, "What you sell is required"],
     },
     slug: {
       type: String,
@@ -32,15 +36,25 @@ const storeSchema = new mongoose.Schema(
       default: false,
     },
 
-    userInterface: {
-      logo: {
-        type: String,
-        default: "",
-      },
-      brandColor: {
-        type: String,
-        default: "#000000",
-      },
+    logo: {
+      type: String,
+      default: "",
+    },
+    brandColor: {
+      type: String,
+      default: "#000000",
+    },
+    heroImage: {
+      type: String,
+      required: true,
+    },
+    heading: {
+      type: String,
+      default: "Welcome to our store",
+    },
+    subHeading: {
+      type: String,
+      default: "Explore our products and enjoy shopping!",
     },
   },
   {

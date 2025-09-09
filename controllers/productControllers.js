@@ -11,9 +11,30 @@ exports.createProduct = catchAsync(async (req, res, next) => {
       new AppError("you are not allowed to create products here ", 401)
     );
   }
+  let { availableSize } = req.body;
+  if (typeof availableSize === "string") {
+    try {
+      availableSize = JSON.parse(availableSize);
+    } catch {
+      availableSize = [];
+    }
+  }
 
+  console.log(req.body);
+
+  /*
+  if (!req.user.emailVerified) {
+    return next(
+      new AppError(
+        "Verify your email first, please go to your email and click the verification link",
+        401
+      )
+    );
+  }
+    */
   const product = await Product.create({
     ...req.body,
+    availableSize: availableSize,
     storeId: req.params.id,
     ownerId: req.user._id,
   });
@@ -129,10 +150,11 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 });*/
 exports.deleteProduct = catchAsync(async (req, res, next) => {
   // 1️⃣ Find product
-  const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id).select("+ownerId");
   if (!product) return next(new AppError("Product not found", 404));
 
   // 2️⃣ Check permission
+  console.log(req.user._id, product);
   if (!isHisStore(req.user, product.ownerId)) {
     return next(
       new AppError("You do not have permission to delete this product", 403)

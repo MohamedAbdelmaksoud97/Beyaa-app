@@ -2,8 +2,9 @@
 const express = require("express");
 const app = express();
 
-const helmet = require("helmet");
 const cors = require("cors");
+
+const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
@@ -14,6 +15,7 @@ const { xss } = require("express-xss-sanitizer");
 const storeControllers = require("./controllers/storeControllers");
 const productControllers = require("./controllers/productControllers");
 const filesControllers = require("./controllers/filesControllers");
+const logoControllers = require("./controllers/logoControllers");
 const authControllers = require("./controllers/authControllers");
 const purchaseControllers = require("./controllers/purchaseControllers");
 const globalErrorHandler = require("./controllers/errorController");
@@ -29,31 +31,46 @@ const adminUserRoutes = require("./routes/adminUserRoutes");
 // In prod behind a proxy (Heroku/Nginx), enable this so req.secure works and secure cookies set.
 // app.set("trust proxy", 1); // PROD ONLY: needed when behind reverse proxy
 
+/* -------------------- CORS (Express 5 safe) -------------------- */
+/* -------------------- CORS (Express 5 safe) -------------------- */
+const allowlist = new Set([
+  "http://localhost:5173",
+  "http://localhost:5181",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "http://localhost:5177",
+  "http://127.0.0.1:5177",
+  "http://127.0.0.1:5181",
+]);
+
+const path = require("path");
+app.use(express.static(path.join(__dirname, "public")));
+
+const corsDelegate = (req, cb) => {
+  const origin = req.get("Origin");
+
+  if (!origin || allowlist.has(origin)) {
+    cb(null, {
+      origin: origin || "*", // ✅ never "true"
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders:
+        req.get("Access-Control-Request-Headers") ||
+        "Content-Type, Authorization",
+      optionsSuccessStatus: 204,
+    });
+  } else {
+    cb(null, { origin: false });
+  }
+};
+
+app.use(cors(corsDelegate));
+
+//app.options(/.*/, cors(corsDelegate)); // preflight for any route
+
 // Security HTTP headers (safe in dev too)
 app.use(helmet());
-
-/* -------------------- CORS -------------------- */
-// In dev, allow localhost:3000 (Vite/CRA). If you use cookies cross‑site, keep credentials:true.
-app.use(
-  cors({
-    origin: "http://localhost:3000", // DEV: your frontend origin
-    credentials: true, // needed if you send cookies from server to frontend
-  })
-);
-// Preflight for complex requests (PUT/PATCH/DELETE, custom headers)
-//app.options("*", cors());
-
-// In prod, lock CORS to your real frontend domains, not *
-/*
-app.use(
-  cors({
-    origin: ["https://your-frontend.com"], // PROD: strict allowlist
-    credentials: true
-  })
-);
-app.options("*", cors());
-*/
-
 /* -------------------- Rate limiting -------------------- */
 // Light limiter keeps noisy loops in check, fine for dev.
 const apiLimiter = rateLimit({
@@ -101,14 +118,15 @@ app.use(compression()); // PROD RECOMMENDED; optional in dev
 
 /* -------------------- Routes -------------------- */
 // app.js
-const path = require("path");
-app.use(express.static(path.join(__dirname, "public")));
+
 // Files saved to public/img/products/... will be served at /img/products/...
 
 // Store routes
 app.post(
   "/api/v1/createStore",
   authControllers.protect,
+  logoControllers.uploadLogoImage,
+  logoControllers.resizeLogoImage,
   storeControllers.createStore
 );
 app.use("/api/v1", storeRouter);
@@ -125,11 +143,11 @@ app.use("/api/v1/:id/products", productRoutes);
 
 // Purchase routes (protect if needed)
 app.post(
-  "/api/v1/:id/createPurchase",
+  "/api/v1/:slug/createPurchase",
   /* authControllers.protect, */ // enable when purchases must be authenticated
   purchaseControllers.createPurchase
 );
-app.use("/api/v1/:id/purchases", purchaseRoutes);
+app.use("/api/v1/:slug/purchases", purchaseRoutes);
 
 // User routes
 app.use("/api/v1/users", userRoutes);

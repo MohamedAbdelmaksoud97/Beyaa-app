@@ -14,6 +14,6 @@ router
   .route("/:id")
   .get(purchaseControllers.getPurchase)
   .patch(authControllers.protect, purchaseControllers.updatePurchaseStatus)
-  .delete(purchaseControllers.deletePurchase);
+  .delete(authControllers.protect, purchaseControllers.deletePurchase);
 
 module.exports = router;
