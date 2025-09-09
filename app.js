@@ -1,17 +1,20 @@
-// app.js
+// app.js (production-ready, Express 5 safe)
+"use strict";
+
 const express = require("express");
 const app = express();
 
+const path = require("path");
 const cors = require("cors");
-
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-const mongoSanitize = require("express-mongo-sanitize");
-const hpp = require("hpp");
+// NOTE: do NOT use 'hpp' on Express 5 (reassigns req.query)
 const cookieParser = require("cookie-parser");
 const compression = require("compression");
-const { xss } = require("express-xss-sanitizer");
+// const { xss } = require("express-xss-sanitizer"); // ❌ remove this
+const xssLib = require("xss"); // ✅ lightweight sanitizer
 
+// Controllers
 const storeControllers = require("./controllers/storeControllers");
 const productControllers = require("./controllers/productControllers");
 const filesControllers = require("./controllers/filesControllers");
@@ -20,45 +23,70 @@ const authControllers = require("./controllers/authControllers");
 const purchaseControllers = require("./controllers/purchaseControllers");
 const globalErrorHandler = require("./controllers/errorController");
 
+// Routers
 const storeRouter = require("./routes/storeRoutes");
 const productRoutes = require("./routes/productRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
 
-/* -------------------- Security & platform setup -------------------- */
+/* -------------------- Core app hardening -------------------- */
 
-// In prod behind a proxy (Heroku/Nginx), enable this so req.secure works and secure cookies set.
-// app.set("trust proxy", 1); // PROD ONLY: needed when behind reverse proxy
+app.set("trust proxy", 1); // secure cookies & req.secure behind proxy
+/*
+app.use((req, res, next) => {
+  if (req.secure || req.get("x-forwarded-proto") === "https") return next();
+  return res.redirect(301, "https://" + req.headers.host + req.originalUrl);
+});
+*/
+app.disable("x-powered-by"); // hide stack
 
-/* -------------------- CORS (Express 5 safe) -------------------- */
-/* -------------------- CORS (Express 5 safe) -------------------- */
+// Static with caching
+app.use(
+  "/",
+  express.static(path.join(__dirname, "public"), {
+    setHeaders: (res, filePath) => {
+      if (/\.[0-9a-f]{8,}\./i.test(path.basename(filePath))) {
+        res.setHeader("Cache-Control", "public,max-age=31536000,immutable");
+      } else {
+        res.setHeader("Cache-Control", "public,max-age=3600");
+      }
+    },
+  })
+);
+
+/* -------------------- CORS -------------------- */
+
+const envAllowlist = (process.env.CORS_ALLOWLIST || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const allowlist = new Set([
   "http://localhost:5173",
-  "http://localhost:5181",
+  "http://localhost:5175",
   "http://127.0.0.1:5173",
   "http://localhost:5174",
   "http://127.0.0.1:5174",
   "http://localhost:5177",
   "http://127.0.0.1:5177",
+  "http://localhost:5181",
   "http://127.0.0.1:5181",
+  ...envAllowlist,
 ]);
-
-const path = require("path");
-app.use(express.static(path.join(__dirname, "public")));
 
 const corsDelegate = (req, cb) => {
   const origin = req.get("Origin");
-
-  if (!origin || allowlist.has(origin)) {
+  if (origin && allowlist.has(origin)) {
     cb(null, {
-      origin: origin || "*", // ✅ never "true"
+      origin,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders:
         req.get("Access-Control-Request-Headers") ||
         "Content-Type, Authorization",
       optionsSuccessStatus: 204,
+      maxAge: 600,
     });
   } else {
     cb(null, { origin: false });
@@ -66,62 +94,134 @@ const corsDelegate = (req, cb) => {
 };
 
 app.use(cors(corsDelegate));
+app.options(/.*/, cors(corsDelegate)); // Express 5-safe preflight
 
-//app.options(/.*/, cors(corsDelegate)); // preflight for any route
+/* -------------------- Security headers -------------------- */
 
-// Security HTTP headers (safe in dev too)
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+app.use(
+  helmet.contentSecurityPolicy({
+    useDefaults: true,
+    directives: {
+      "default-src": ["'self'"],
+      "connect-src": ["'self'"].concat(envAllowlist),
+      "img-src": ["'self'", "data:", "blob:", "https:"],
+      "script-src": ["'self'"],
+      "style-src": ["'self'", "https:", "'unsafe-inline'"],
+      "frame-ancestors": ["'none'"],
+    },
+  })
+);
+
 /* -------------------- Rate limiting -------------------- */
-// Light limiter keeps noisy loops in check, fine for dev.
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300, // DEV: a bit higher to avoid throttling yourself
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use("/api", apiLimiter);
 
-// For prod, add a strict limiter on /login to mitigate brute force.
-/*
-const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 10,
-  message: "Too many login attempts, try again later."
-});
-app.use("/api/v1/users/login", authLimiter);
-*/
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 200,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
 
-/* -------------------- Parsers & sanitizers -------------------- */
+app.use(
+  ["/api/v1/users/login", "/api/v1/users/forgotPassword"],
+  rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many attempts, please try again later.",
+  })
+);
 
-// Limit payload size (10kb is fine in dev; bump if you upload base64, etc.)
+/* -------------------- Parsers -------------------- */
+
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
 
-// Defend against NoSQL injection: strips $ and . in keys , *-*-*- built in when using mongoose methods
-//app.use(mongoSanitize());
+/* -------------------- Sanitizers (Express 5 safe) -------------------- */
 
-// XSS sanitizer (basic layer; template escaping/CSP still matter)
-app.use(xss());
+// ---- Safe NoSQL operator stripping for Express 5 (mutates in place; never reassigns req.query) ----
+function stripNoSQLOps(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) stripNoSQLOps(obj[i]);
+    return obj;
+  }
+  for (const key of Object.keys(obj)) {
+    if (key[0] === "$" || key.includes(".")) {
+      delete obj[key];
+      continue;
+    }
+    const val = obj[key];
+    if (val && typeof val === "object") stripNoSQLOps(val);
+  }
+  return obj;
+}
+function mongoSanitizeSafe() {
+  return (req, _res, next) => {
+    if (req.body && typeof req.body === "object") stripNoSQLOps(req.body);
+    if (req.query && typeof req.query === "object") stripNoSQLOps(req.query);
+    if (req.params && typeof req.params === "object") stripNoSQLOps(req.params);
+    next();
+  };
+}
+app.use(mongoSanitizeSafe());
 
-// Prevent HTTP Parameter Pollution. Add params you *allow* to repeat.
-app.use(
-  hpp({
-    whitelist: ["price", "ratingsAverage", "ratingsQuantity"],
-  })
-);
+// XSS sanitizer that MUTATES values (no reassign of req.*)
+function deepSanitize(obj) {
+  if (obj == null) return obj;
+  if (typeof obj === "string") return xssLib(obj);
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) obj[i] = deepSanitize(obj[i]);
+    return obj;
+  }
+  if (typeof obj === "object") {
+    for (const k of Object.keys(obj)) obj[k] = deepSanitize(obj[k]);
+    return obj;
+  }
+  return obj;
+}
+function xssSafe() {
+  return (req, _res, next) => {
+    if (req.body && typeof req.body === "object") deepSanitize(req.body);
+    if (req.query && typeof req.query === "object") deepSanitize(req.query); // mutate only
+    if (req.params && typeof req.params === "object") deepSanitize(req.params);
+    next();
+  };
+}
+app.use(xssSafe());
 
-// Compression helps even in dev; disable if you’re debugging raw responses.
-/*
-app.use(compression()); // PROD RECOMMENDED; optional in dev
-*/
+// HTTP Parameter Pollution guard (mutates only, keeps arrays for whitelisted keys)
+function hppSafe(whitelist = []) {
+  const allowed = new Set(whitelist);
+  return (req, _res, next) => {
+    const q = req.query;
+    if (q && typeof q === "object") {
+      for (const [key, val] of Object.entries(q)) {
+        if (Array.isArray(val)) q[key] = allowed.has(key) ? val : val[0];
+      }
+    }
+    next();
+  };
+}
+app.use(hppSafe(["price", "ratingsAverage", "ratingsQuantity"]));
+
+/* -------------------- Compression -------------------- */
+
+app.use(compression());
 
 /* -------------------- Routes -------------------- */
-// app.js
 
-// Files saved to public/img/products/... will be served at /img/products/...
-
-// Store routes
+// Store
 app.post(
   "/api/v1/createStore",
   authControllers.protect,
@@ -131,7 +231,7 @@ app.post(
 );
 app.use("/api/v1", storeRouter);
 
-// Product routes
+// Product
 app.post(
   "/api/v1/:id/createProduct",
   authControllers.protect,
@@ -141,20 +241,26 @@ app.post(
 );
 app.use("/api/v1/:id/products", productRoutes);
 
-// Purchase routes (protect if needed)
+// Purchase
 app.post(
   "/api/v1/:slug/createPurchase",
-  /* authControllers.protect, */ // enable when purchases must be authenticated
+  // authControllers.protect, // uncomment if purchases must be authenticated
   purchaseControllers.createPurchase
 );
 app.use("/api/v1/:slug/purchases", purchaseRoutes);
 
-// User routes
+// Users & Admin
 app.use("/api/v1/users", userRoutes);
-//admin routes
 app.use("/api/v1/admin", adminUserRoutes);
 
-/* -------------------- Global error handler (last) -------------------- */
+/* -------------------- 404 & errors (last) -------------------- */
+
+app.use((req, res, next) => {
+  const err = new Error(`Can't find ${req.originalUrl} on this server`);
+  err.statusCode = 404;
+  err.status = "fail";
+  next(err);
+});
 
 app.use(globalErrorHandler);
 
