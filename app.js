@@ -72,6 +72,11 @@ const allowlist = new Set([
   "http://127.0.0.1:5177",
   "http://localhost:5181",
   "http://127.0.0.1:5181",
+  "https://beyaa-frontend-v1.vercel.app",
+  "https://beyaa-frontend-v1-arci.vercel.app",
+  "https://beyaa-frontend-v4.vercel.app",
+  "http://beyaa.com.s3-website.eu-north-1.amazonaws.com",
+
   ...envAllowlist,
 ]);
 
@@ -97,7 +102,7 @@ app.use(cors(corsDelegate));
 app.options(/.*/, cors(corsDelegate)); // Express 5-safe preflight
 
 /* -------------------- Security headers -------------------- */
-
+/*
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -253,15 +258,22 @@ app.use("/api/v1/:slug/purchases", purchaseRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/admin", adminUserRoutes);
 
-/* -------------------- 404 & errors (last) -------------------- */
+/* -------------------- Frontend SPA & 404 -------------------- */
 
-app.use((req, res, next) => {
+// ✅ Serve React frontend for any non-API route
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// ❌ Only trigger 404 for missing API endpoints (not frontend routes)
+app.use("/api", (req, res, next) => {
   const err = new Error(`Can't find ${req.originalUrl} on this server`);
   err.statusCode = 404;
   err.status = "fail";
   next(err);
 });
 
+// ✅ Centralized error handler
 app.use(globalErrorHandler);
 
 module.exports = app;
