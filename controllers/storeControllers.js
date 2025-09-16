@@ -17,6 +17,7 @@ exports.createStore = catchAsync(async (req, res, next) => {
     heroImage,
     heading,
     subHeading,
+    brandColor,
   } = req.body;
   const owner = req.user._id;
   const existingStore = await Store.findOne({ owner });
@@ -29,6 +30,7 @@ exports.createStore = catchAsync(async (req, res, next) => {
     storeInformation,
     owner,
     heroImage,
+    brandColor,
     whatSell,
     heading,
     subHeading,
