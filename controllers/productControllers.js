@@ -6,6 +6,7 @@ const qs = require("qs");
 // @desc Create a product
 exports.createProduct = catchAsync(async (req, res, next) => {
   const store = await Store.findOne({ owner: req.user._id });
+  console.log("sssss", store._id, req.params);
   if (store._id != req.params.id) {
     return next(
       new AppError("you are not allowed to create products here ", 401)

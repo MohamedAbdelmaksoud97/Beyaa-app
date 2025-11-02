@@ -22,10 +22,10 @@ const handleDuplicateFieldsDB = (err) => {
 
   const message =
     fields.length === 1
-      ? `Duplicate value for '${fields[0]}'. Please use another value.`
+      ? `Duplicate value for '${fields[0]}' Please use another value.`
       : `Duplicate values for: ${fields.join(", ")}.`;
 
-  const appErr = new AppError(message, 400);
+  const appErr = new AppError(message, 400, { code: "DUPLICATE_KEY" });
   appErr.fieldErrors = fieldErrors;
   return appErr;
 };
@@ -55,6 +55,7 @@ const buildResponse = (err) => {
   const payload = {
     status,
     message: err.message || "Something went wrong",
+    code: err.code || "UNKNOWN_ERROR", // 👈 stable code for UI
   };
   if (err.fieldErrors && Object.keys(err.fieldErrors).length) {
     payload.fieldErrors = err.fieldErrors;

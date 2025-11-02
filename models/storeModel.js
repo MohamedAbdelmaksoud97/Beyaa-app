@@ -3,6 +3,37 @@ const { default: slugify } = require("slugify");
 const Product = require("./productModel");
 const Purchase = require("./purchaseModel");
 
+const bannerSchema = new mongoose.Schema(
+  {
+    image: {
+      type: String,
+      //required: [true, "Banner image is required"],
+    },
+    title: {
+      type: String,
+
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    startDate: {
+      type: Date,
+      required: [true, "Banner start date is required"],
+    },
+    endDate: {
+      type: Date,
+      required: [true, "Banner end date is required"],
+    },
+    link: {
+      type: String,
+      trim: true,
+    },
+  },
+  { timestamps: true } // no extra _id for each banner, but keep timestamps
+);
+
 const storeSchema = new mongoose.Schema(
   {
     name: {
@@ -17,8 +48,6 @@ const storeSchema = new mongoose.Schema(
     },
     whatSell: {
       type: String,
-
-      //required: [true, "What you sell is required"],
     },
     slug: {
       type: String,
@@ -28,14 +57,12 @@ const storeSchema = new mongoose.Schema(
       ref: "User",
       required: true,
       select: false,
-      unique: true, // 🛡 Prevents accidental multiple stores per user
+      unique: true,
     },
-
     active: {
       type: Boolean,
       default: false,
     },
-
     logo: {
       type: String,
       default: "",
@@ -56,6 +83,12 @@ const storeSchema = new mongoose.Schema(
       type: String,
       default: "Explore our products and enjoy shopping!",
     },
+
+    // ✅ New banners field
+    banners: {
+      type: [bannerSchema],
+      default: [],
+    },
   },
   {
     timestamps: true,
@@ -71,14 +104,14 @@ storeSchema.pre("save", function (next) {
 });
 
 storeSchema.virtual("products", {
-  ref: "Product", // The model to use
-  foreignField: "storeId", // The field in Product that refers to Store
-  localField: "_id", // The field in Store that matches foreignField
+  ref: "Product",
+  foreignField: "storeId",
+  localField: "_id",
 });
 storeSchema.virtual("purchases", {
-  ref: "Purchase", // The model to use
-  foreignField: "storeId", // The field in Product that refers to Store
-  localField: "_id", // The field in Store that matches foreignField
+  ref: "Purchase",
+  foreignField: "storeId",
+  localField: "_id",
 });
 
 module.exports = mongoose.model("Store", storeSchema);

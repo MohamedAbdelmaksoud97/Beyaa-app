@@ -64,8 +64,15 @@ exports.getAllStores = catchAsync(async (req, res, next) => {
 exports.getStoreBySlug = catchAsync(async (req, res, next) => {
   const store = await Store.findOne({ slug: req.params.slug })
     .populate("products")
-    .populate("purchases");
+    .populate("purchases")
+    .lean()
+    .exec();
   if (!store) return next(new AppError("Store not found", 404));
+
+  const today = new Date();
+  store.banners = store.banners.filter(
+    (b) => b.endDate >= today && b.startDate <= today
+  );
 
   res.status(200).json({
     status: "success",
@@ -135,6 +142,59 @@ exports.updateStore = catchAsync(async (req, res, next) => {
 // @desc    Delete a store by ID
 // @route   DELETE /stores/:id
 // @access  Private (owner/admin)
+
+exports.addBanner = catchAsync(async (req, res, next) => {
+  const store = await Store.findById(req.params.id).select("+owner");
+  if (!store) return next(new AppError("Store not found", 404));
+
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
+    return next(
+      new AppError("You do not have permission to update this store", 403)
+    );
+  }
+
+  const banner = {
+    title: req.body.title,
+    description: req.body.description,
+    startDate: req.body.startDate,
+    endDate: req.body.endDate,
+    image: req.body.image,
+    link: req.body.link,
+  };
+
+  store.banners.push(banner);
+  await store.save();
+
+  res.status(201).json({
+    status: "success",
+    data: store.banners,
+  });
+});
+
+exports.removeBanner = catchAsync(async (req, res, next) => {
+  const store = await Store.findById(req.params.id).select("+owner");
+  if (!store) return next(new AppError("Store not found", 404));
+
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
+    return next(
+      new AppError("You do not have permission to update this store", 403)
+    );
+  }
+  const bannerId = req.params.bannerId;
+  const bannerIndex = store.banners.findIndex(
+    (b) => b._id.toString() === bannerId
+  );
+  if (bannerIndex === -1) {
+    return next(new AppError("Banner not found", 404));
+  }
+  store.banners.splice(bannerIndex, 1);
+  await store.save();
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
+
 exports.deleteStore = catchAsync(async (req, res, next) => {
   const store = await Store.findByIdAndDelete(req.params.id);
   if (!store) return next(new AppError("Store not found", 404));

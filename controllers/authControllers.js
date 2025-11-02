@@ -151,6 +151,7 @@ exports.logIn = catchAsync(async (req, res, next) => {
 
 exports.protect = catchAsync(async (req, res, next) => {
   console.log(req.body);
+  console.log("ssssaaaaa", req.params.id);
   //extract token from request headers or cookie
   let token;
   if (

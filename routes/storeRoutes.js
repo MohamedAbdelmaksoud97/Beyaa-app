@@ -4,6 +4,7 @@ const router = express.Router();
 const storeControllers = require("../controllers/storeControllers");
 const authControllers = require("../controllers/authControllers");
 const logoControllers = require("../controllers/logoControllers");
+const bannerControllers = require("../controllers/bannerControllers");
 
 // ✅ Create a new store
 /*
@@ -34,6 +35,20 @@ router.patch(
   storeControllers.updateStore
 );
 
+router.post(
+  "/:id/banners",
+
+  authControllers.protect,
+
+  bannerControllers.uploadBannerImage,
+  bannerControllers.resizeBannerImage,
+  storeControllers.addBanner
+);
+router.delete(
+  "/:id/banners/:bannerId",
+  authControllers.protect,
+  storeControllers.removeBanner
+);
 // ✅ Delete a store by ID
 router.delete("/:id", authControllers.restrictTo, storeControllers.deleteStore);
 

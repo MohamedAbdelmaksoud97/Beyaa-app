@@ -117,14 +117,15 @@ exports.getStorePurchases = catchAsync(async (req, res, next) => {
   if (!store) return next(new AppError("Store not found", 404));
   console.log("ssss", req.user._id);
   console.log("cccc", store.owner);
+  const isHisStore = store.owner?.equals?.(req.user._id) === true;
+  console.log(isHisStore);
 
-  /*
-  if (!helpers.isHisStore(req.user, store.owner)) {
+  if (!isHisStore) {
     return next(
       new AppError("You are not allowed to explore those purchases", 401)
     );
   }
-*/
+
   const purchases = await Purchase.find({ storeId: store._id }).sort(
     "-createdAt"
   );
@@ -140,6 +141,22 @@ exports.getStorePurchases = catchAsync(async (req, res, next) => {
 exports.getPurchase = catchAsync(async (req, res, next) => {
   const purchase = await Purchase.findById(req.params.id);
   if (!purchase) return next(new AppError("Purchase not found", 404));
+
+  // Then get the store
+  const store = await Store.findById(purchase.storeId).select("owner");
+  if (!store) return next(new AppError("Store not found", 404));
+  console.log(store);
+  console.log(req.user);
+  const isHisStore = store.owner?.equals?.(req.user._id) === true;
+  console.log(isHisStore);
+
+  // Check ownership
+
+  if (!isHisStore) {
+    return next(
+      new AppError("You are not authorized to see this purchase", 403)
+    );
+  }
 
   res.status(200).json({
     status: "success",
@@ -161,14 +178,17 @@ exports.updatePurchaseStatus = catchAsync(async (req, res, next) => {
   if (!store) return next(new AppError("Store not found", 404));
   console.log(store);
   console.log(req.user);
+  const isHisStore = store.owner?.equals?.(req.user._id) === true;
+  console.log(isHisStore);
+
   // Check ownership
-  /*
-  if (!helpers.isHisStore(req.user, store.owner)) {
+
+  if (!isHisStore) {
     return next(
       new AppError("You are not authorized to update this purchase", 403)
     );
   }
-*/
+
   if (!validStatuses.includes(status)) {
     return next(new AppError("Invalid status", 400));
   }
@@ -187,6 +207,25 @@ exports.updatePurchaseStatus = catchAsync(async (req, res, next) => {
 
 // ✅ Delete a purchase
 exports.deletePurchase = catchAsync(async (req, res, next) => {
+  const purchase = await Purchase.findById(req.params.id);
+  if (!purchase) return next(new AppError("Purchase not found", 404));
+
+  // Then get the store
+  const store = await Store.findById(purchase.storeId).select("owner");
+  if (!store) return next(new AppError("Store not found", 404));
+  console.log(store);
+  console.log(req.user);
+  const isHisStore = store.owner?.equals?.(req.user._id) === true;
+  console.log(isHisStore);
+
+  // Check ownership
+
+  if (!isHisStore) {
+    return next(
+      new AppError("You are not authorized to delete this purchase", 403)
+    );
+  }
+
   const deleted = await Purchase.findByIdAndDelete(req.params.id);
   if (!deleted) return next(new AppError("Purchase not found", 404));
 
