@@ -7,6 +7,7 @@ const catchAsync = require("../utils/catchAsync");
 const Product = require("../models/productModel");
 
 const PROD_DIR = path.join(__dirname, "..", "public", "img", "products");
+fs.mkdirSync(PROD_DIR, { recursive: true });
 // Multer: keep in memory for Sharp
 const storage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
