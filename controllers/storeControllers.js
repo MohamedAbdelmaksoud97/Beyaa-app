@@ -70,7 +70,7 @@ exports.getStoreBySlug = catchAsync(async (req, res, next) => {
   if (!store) return next(new AppError("Store not found", 404));
 
   const today = new Date();
-  store.banners = store.banners.filter(
+  store.banners = store.banners?.filter(
     (b) => b.endDate >= today && b.startDate <= today
   );
 
