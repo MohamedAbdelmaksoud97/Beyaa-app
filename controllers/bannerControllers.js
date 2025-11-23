@@ -3,9 +3,11 @@ const multer = require("multer");
 const sharp = require("sharp");
 const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
+const fs = require("fs");
 
 // Directory for banner images
 const BANNER_DIR = path.join(__dirname, "..", "public", "img", "banners");
+fs.mkdirSync(BANNER_DIR, { recursive: true });
 
 // Multer: keep in memory for Sharp
 const storage = multer.memoryStorage();
