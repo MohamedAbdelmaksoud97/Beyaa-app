@@ -34,6 +34,19 @@ const bannerSchema = new mongoose.Schema(
   { timestamps: true } // no extra _id for each banner, but keep timestamps
 );
 
+const footerSchema = new mongoose.Schema({
+  socialLinks: {
+    type: Object,
+
+    default: {},
+  },
+  quickLinks: {
+    type: Object,
+
+    default: {},
+  },
+});
+
 const storeSchema = new mongoose.Schema(
   {
     name: {
@@ -89,7 +102,12 @@ const storeSchema = new mongoose.Schema(
       type: [bannerSchema],
       default: [],
     },
+    footer: {
+      type: footerSchema,
+      default: {},
+    },
   },
+
   {
     timestamps: true,
     toJSON: { virtuals: true },

@@ -49,6 +49,22 @@ router.delete(
   authControllers.protect,
   storeControllers.removeBanner
 );
+router.post(
+  "/:id/footer",
+  authControllers.protect,
+  storeControllers.createFooter
+);
+router.patch(
+  "/:id/footer",
+  authControllers.protect,
+  storeControllers.updateFooter
+);
+router.delete(
+  "/:id/footer/:section/:key",
+  authControllers.protect,
+  storeControllers.deleteFooterElement
+);
+
 // ✅ Delete a store by ID
 router.delete("/:id", authControllers.restrictTo, storeControllers.deleteStore);
 

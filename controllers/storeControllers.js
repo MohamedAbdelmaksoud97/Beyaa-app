@@ -195,6 +195,105 @@ exports.removeBanner = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.createFooter = catchAsync(async (req, res, next) => {
+  const store = await Store.findById(req.params.id).select("+owner");
+  if (!store) return next(new AppError("Store not found", 404));
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
+    return next(
+      new AppError("You do not have permission to update this store", 403)
+    );
+  }
+  const footerData = {
+    socialLinks: req.body.socialLinks || {},
+    quickLinks: req.body.quickLinks || {},
+  };
+  store.footer = footerData;
+  await store.save();
+  res.status(201).json({
+    status: "success",
+    data: store.footer,
+  });
+});
+exports.updateFooter = catchAsync(async (req, res, next) => {
+  const store = await Store.findById(req.params.id).select("+owner");
+  if (!store) return next(new AppError("Store not found", 404));
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
+    return next(
+      new AppError("You do not have permission to update this store", 403)
+    );
+  }
+
+  if (!store.footer) store.footer = {};
+  if (!store.footer.socialLinks) store.footer.socialLinks = {};
+  if (!store.footer.quickLinks) store.footer.quickLinks = {};
+
+  if (req.body.socialLinks) {
+    store.footer.socialLinks = {
+      ...store.footer.socialLinks,
+      ...req.body.socialLinks,
+    };
+  }
+
+  if (req.body.quickLinks) {
+    store.footer.quickLinks = {
+      ...store.footer.quickLinks,
+      ...req.body.quickLinks,
+    };
+  }
+
+  await store.save();
+
+  res.status(200).json({
+    status: "success",
+    data: store.footer,
+  });
+});
+exports.deleteFooterElement = catchAsync(async (req, res, next) => {
+  const store = await Store.findById(req.params.id).select("+owner");
+  if (!store) return next(new AppError("Store not found", 404));
+
+  // Check Ownership
+  if (!helpers.isHisStore(req.user._id, store.owner)) {
+    return next(
+      new AppError("You do not have permission to update this store", 403)
+    );
+  }
+
+  const { section, key } = req.params;
+
+  // Validate section
+  if (!["socialLinks", "quickLinks"].includes(section)) {
+    return next(new AppError("Invalid section specified", 400));
+  }
+
+  // Ensure footer exists
+  if (!store.footer) {
+    return next(new AppError("Footer does not exist", 404));
+  }
+
+  // Ensure section exists inside footer
+  if (!store.footer[section]) {
+    return next(
+      new AppError(`Section '${section}' does not exist in footer`, 404)
+    );
+  }
+
+  // Ensure key exists
+  if (!(key in store.footer[section])) {
+    return next(new AppError(`Key '${key}' not found in ${section}`, 404));
+  }
+
+  // Delete the key
+  delete store.footer[section][key];
+
+  await store.save();
+
+  res.status(200).json({
+    status: "success",
+    data: store.footer,
+  });
+});
+
 exports.deleteStore = catchAsync(async (req, res, next) => {
   const store = await Store.findByIdAndDelete(req.params.id);
   if (!store) return next(new AppError("Store not found", 404));
