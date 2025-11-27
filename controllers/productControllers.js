@@ -3,6 +3,8 @@ const Store = require("../models/storeModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const qs = require("qs");
+const { find } = require("../models/userModel");
+const User = require("../models/userModel");
 // @desc Create a product
 exports.createProduct = catchAsync(async (req, res, next) => {
   const store = await Store.findOne({ owner: req.user._id });
@@ -12,6 +14,17 @@ exports.createProduct = catchAsync(async (req, res, next) => {
       new AppError("you are not allowed to create products here ", 401)
     );
   }
+
+  const user = await User.findById(req.user._id);
+  if (!user.emailVerified) {
+    return next(
+      new AppError(
+        "Verify your email first, please go to your email and click the verification link",
+        401
+      )
+    );
+  }
+
   let { availableSize } = req.body;
   if (typeof availableSize === "string") {
     try {
