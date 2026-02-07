@@ -6,7 +6,9 @@ const AppError = require("../utils/appError");
 const catchAsync = require("../utils/catchAsync");
 
 const LOGO_DIR = path.join(__dirname, "..", "public", "img", "logos");
-// Multer: keep in memory for Sharp
+if (!fs.existsSync(LOGO_DIR)) {
+  fs.mkdirSync(LOGO_DIR, { recursive: true });
+}
 const storage = multer.memoryStorage();
 const fileFilter = (req, file, cb) => {
   if (file.mimetype?.startsWith("image")) cb(null, true);
