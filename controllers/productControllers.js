@@ -9,7 +9,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
   console.log("sssss", store._id, req.params);
   if (store._id != req.params.id) {
     return next(
-      new AppError("you are not allowed to create products here ", 401)
+      new AppError("you are not allowed to create products here ", 401),
     );
   }
   let { availableSize } = req.body;
@@ -123,7 +123,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
   // 2️⃣ Check ownership/admin
   if (!isHisStore(req.user, product.ownerId)) {
     return next(
-      new AppError("You do not have permission to update this product", 403)
+      new AppError("You do not have permission to update this product", 403),
     );
   }
 
@@ -158,7 +158,7 @@ exports.deleteProduct = catchAsync(async (req, res, next) => {
   console.log(req.user._id, product);
   if (!isHisStore(req.user, product.ownerId)) {
     return next(
-      new AppError("You do not have permission to delete this product", 403)
+      new AppError("You do not have permission to delete this product", 403),
     );
   }
 
@@ -178,3 +178,20 @@ const isHisStore = function (currentUser, productOwnerId) {
     productOwnerId.toString() === currentUser._id.toString()
   );
 };
+
+exports.searchProducts = catchAsync(async (req, res, next) => {
+  const currentStore = await Store.findOne({ _id: req.params.id });
+  console.log("searching in store", currentStore);
+  if (!currentStore) return next(new AppError("Store not found", 404));
+
+  const products = await Product.find({
+    storeId: currentStore._id,
+    $text: { $search: req.params.search },
+  });
+
+  res.status(200).json({
+    status: "success",
+    results: products.length,
+    data: products,
+  });
+});

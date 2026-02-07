@@ -65,7 +65,10 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // adds createdAt and updatedAt
-  }
+  },
 );
+// in MongoDB or Mongoose
+// in MongoDB or Mongoose
+productSchema.index({ name: "text", description: "text" });
 
 module.exports = mongoose.model("Product", productSchema);

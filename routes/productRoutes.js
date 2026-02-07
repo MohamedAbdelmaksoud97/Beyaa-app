@@ -10,6 +10,7 @@ const filesControllers = require("../controllers/filesControllers");
 */
 // Get all products of a store
 router.get("/", productControllers.getAllProducts);
+router.get("/search/:search", productControllers.searchProducts); // Search products by name or description
 
 // Get product by ID
 router.get("/:id", productControllers.getProductById);
@@ -20,7 +21,7 @@ router.patch(
   authController.protect,
   filesControllers.uploadProductImages,
   filesControllers.resizeProductImages,
-  productControllers.updateProduct
+  productControllers.updateProduct,
 );
 
 // Delete product
