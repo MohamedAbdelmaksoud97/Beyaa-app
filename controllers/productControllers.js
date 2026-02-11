@@ -16,16 +16,16 @@ exports.createProduct = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findById(req.user._id);
-  /*
+
   if (!user.emailVerified) {
     return next(
       new AppError(
         "Verify your email first, please go to your email and click the verification link",
-        401
-      )
+        401,
+      ),
     );
   }
-*/
+
   let { availableSize } = req.body;
   if (typeof availableSize === "string") {
     try {

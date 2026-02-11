@@ -63,7 +63,6 @@ export const signUp = catchAsync(async (req, res, next) => {
     photo,
   });
 
-  /*
   const emailToken = genEmailVerificationToken(newUser._id);
 
   const verifyUrl = `${process.env.CLIENT_URL}/verifyEmail?token=${emailToken}`;
@@ -87,7 +86,7 @@ export const signUp = catchAsync(async (req, res, next) => {
     subject: "Verify your email - Beyaa",
     html,
   });
-*/
+
   await createSendToken(newUser, 200, res);
 });
 
@@ -243,13 +242,19 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
        Reset Password
     </a>
   `;
-
-  await sgMail.send({
-    to: user.email,
-    from: process.env.SENDGRID_SENDER,
-    subject: "Password Reset - Beyaa",
-    html,
-  });
+  //sgMail.setDataResidency("eu");
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  try {
+    await sgMail.send({
+      to: user.email,
+      from: process.env.SENDGRID_SENDER,
+      subject: "Password Reset - Beyaa",
+      html,
+    });
+  } catch (err) {
+    console.error("SendGrid error:", err?.response?.body || err);
+    return next(new AppError("Email sending failed", 500));
+  }
 
   res.status(200).json({
     status: "success",
