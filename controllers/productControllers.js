@@ -16,6 +16,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findById(req.user._id);
+  /*
   if (!user.emailVerified) {
     return next(
       new AppError(
@@ -24,7 +25,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
       )
     );
   }
-
+*/
   let { availableSize } = req.body;
   if (typeof availableSize === "string") {
     try {

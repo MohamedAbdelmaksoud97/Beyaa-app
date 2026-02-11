@@ -63,6 +63,7 @@ export const signUp = catchAsync(async (req, res, next) => {
     photo,
   });
 
+  /*
   const emailToken = genEmailVerificationToken(newUser._id);
 
   const verifyUrl = `${process.env.CLIENT_URL}/verifyEmail?token=${emailToken}`;
@@ -86,7 +87,7 @@ export const signUp = catchAsync(async (req, res, next) => {
     subject: "Verify your email - Beyaa",
     html,
   });
-
+*/
   await createSendToken(newUser, 200, res);
 });
 
@@ -228,7 +229,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = jwt.sign(
     { userId: user._id },
     process.env.JWT_RESET_SECRET,
-    { expiresIn: "15m" }
+    { expiresIn: "15m" },
   );
 
   const resetURL = `${process.env.CLIENT_URL}/resetpassword/${resetToken}`;
