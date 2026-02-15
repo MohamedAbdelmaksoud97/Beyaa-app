@@ -20,13 +20,13 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         "This route is not for password updates. Use /updateMyPassword.",
-        400
-      )
+        400,
+      ),
     );
   }
 
   // 2) Filter body to allowed fields
-  const allowedData = filterObj(req.body, "name", "email", "phone");
+  const allowedData = filterObj(req.body, "name", "phone");
 
   if (!Object.keys(allowedData).length) {
     return next(new AppError("No allowed fields to update", 400));
@@ -43,7 +43,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   });
   if (!updatedUser) {
     next(
-      new AppError("an error happens while trying to update your account", 401)
+      new AppError("an error happens while trying to update your account", 401),
     );
   }
 
