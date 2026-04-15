@@ -79,14 +79,14 @@ export const signUp = catchAsync(async (req, res, next) => {
     </a>
     <p>Expires in 1 hour.</p>
   `;
-
+  /*
   await sgMail.send({
     to: newUser.email,
     from: process.env.SENDGRID_SENDER,
     subject: "Verify your email - Beyaa",
     html,
   });
-
+*/
   await createSendToken(newUser, 200, res);
 });
 
