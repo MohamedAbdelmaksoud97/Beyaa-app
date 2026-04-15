@@ -27,7 +27,7 @@ const createSendToken = async (user, statusCode, res) => {
   console.log(slug);
   const cookieOptions = {
     expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000,
     ),
     httpOnly: true,
     //secure: isProd,
@@ -59,19 +59,21 @@ exports.signUp = catchAsync(async (req, res, next) => {
   const verifyToken = newUser.createEmailVerificationToken();
   await newUser.save({ validateBeforeSave: false });
 
-  // 2) Email verification link (adjust to your frontend)
+  // 2) Email verification link
+
   const verifyURL = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/api/v1/users/verifyEmail/${verifyToken}`;
 
   const message = `Welcome! Please verify your email by visiting: ${verifyURL}\nThis link expires in 1 hour.`;
 
   try {
+    /*
     await sendEmail({
       to: newUser.email,
       subject: "Verify your email",
       text: message,
-    });
+    });*/
 
     // Option A: Don’t log them in until verified
     /*
@@ -89,7 +91,7 @@ exports.signUp = catchAsync(async (req, res, next) => {
     await newUser.save({ validateBeforeSave: false });
 
     return next(
-      new AppError("Error sending verification email. Try again later.", 500)
+      new AppError("Error sending verification email. Try again later.", 500),
     );
   }
 
@@ -183,7 +185,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
   if (currentUser.changedPasswordAfter(decoded.iat)) {
     return next(
-      new AppError("Password changed recently. Please log in again.", 401)
+      new AppError("Password changed recently. Please log in again.", 401),
     );
   }
   req.user = currentUser;
@@ -207,7 +209,7 @@ exports.updatePassword = catchAsync(async (req, res, next) => {
   const { passwordCurrent, password, passwordConfirm } = req.body;
   if (!passwordCurrent || !password || !passwordConfirm) {
     return next(
-      new AppError("Provide current password, new password and confirm.", 400)
+      new AppError("Provide current password, new password and confirm.", 400),
     );
   }
   if (passwordCurrent === password) {
@@ -251,7 +253,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   // 3) Email a link containing the raw token
   // Example URL (this is an url to our backend later we will adjust it to our front end )
   const resetURL = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/api/v1/users/resetPassword/${resetToken}`;
   const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't request this, ignore this email.`;
 
@@ -274,8 +276,8 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         "There was an error sending the email. Try again later.",
-        500
-      )
+        500,
+      ),
     );
   }
 });
